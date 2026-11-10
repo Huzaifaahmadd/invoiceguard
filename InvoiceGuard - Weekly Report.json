@@ -1,0 +1,195 @@
+{
+  "name": "InvoiceGuard - Weekly Report",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [
+                1
+              ],
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -176,
+        -16
+      ],
+      "id": "a2e85b08-894d-423b-a107-184d44160ab4",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  vendor_norm,\n  COALESCE(SUM(total) FILTER (WHERE created_at >= now() - interval '7 days'), 0) AS this_week,\n  COALESCE(SUM(total) FILTER (WHERE created_at < now() - interval '7 days'\n                              AND created_at >= now() - interval '14 days'), 0) AS last_week\nFROM invoices\nWHERE status = 'approved'\n  AND created_at >= now() - interval '14 days'\nGROUP BY vendor_norm\nORDER BY this_week DESC;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        160,
+        -16
+      ],
+      "id": "1fc1f989-2bbc-4a02-ae3d-b654601bc76c",
+      "name": "Weekly Totals",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "Ebp9aKdxQJzI4yeR",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Take the rows from the database (ignore the empty row if there are none)\nconst rows = $input.all().map(i => i.json).filter(r => r.vendor_norm);\n\nconst thisTotal = rows.reduce((s, r) => s + Number(r.this_week), 0);\nconst lastTotal = rows.reduce((s, r) => s + Number(r.last_week), 0);\n\nconst lines = rows.map(r =>\n  `${r.vendor_norm}: this week ${r.this_week}, last week ${r.last_week}`\n);\n\nreturn [{\n  json: {\n    thisTotal,\n    lastTotal,\n    vendorLines: rows.length ? lines.join(\"\\n\") : \"No approved invoices in the last 14 days.\"\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        384,
+        -16
+      ],
+      "id": "4511993c-7952-4a60-8e95-2bdac882d4f2",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.5-flash",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.2,
+      "position": [
+        544,
+        192
+      ],
+      "id": "3ff25aa6-b212-4e72-8c60-b52f50bddce2",
+      "name": "model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": null,
+          "name": "",
+          "__aiGatewayManaged": true
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are a finance analyst writing a Monday summary for a business owner.\n\nTotal spend this week: {{ $json.thisTotal }}\nTotal spend last week: {{ $json.lastTotal }}\n\nSpend by vendor:\n{{ $json.vendorLines }}\n\nWrite: (1) a one-sentence headline with total spend and the change vs last week, (2) the top 3 vendors by spend, (3) anything unusual. Use only the numbers provided. Maximum 100 words. No filler.",
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        608,
+        -16
+      ],
+      "id": "169dac74-bf3b-41c1-a009-e75e3f2744f5",
+      "name": "Write Report"
+    },
+    {
+      "parameters": {
+        "sendTo": "lifetrader233@gmail.com",
+        "subject": "InvoiceGuard weekly report",
+        "emailType": "text",
+        "message": "={{ $json.text }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        976,
+        -16
+      ],
+      "id": "1b070342-6bc0-4398-b80a-800d2cfa90e0",
+      "name": "Email Report",
+      "webhookId": "d7a85203-5adb-4f51-9a88-7df90d93b61d",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "h6Ul59NZJQfLQyPN",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Weekly Totals",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Weekly Totals": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Write Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Write Report",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Report": {
+      "main": [
+        [
+          {
+            "node": "Email Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true
+  },
+  "versionId": "933ca458-3593-41d2-bf3e-2004c19e081c",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "92e822172ceb05862e524c3a58774ed375f4632f455f97bc0a69ec52a27d56d2"
+  },
+  "nodeGroups": [],
+  "id": "xMcooYqwZiF9M4hP",
+  "tags": []
+}

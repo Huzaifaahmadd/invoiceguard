@@ -1,0 +1,125 @@
+{
+  "name": "InvoiceGuard - Ask Your Invoices",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.5,
+      "position": [
+        0,
+        0
+      ],
+      "id": "0403c582-f1c9-468b-a073-c98c911de9d3",
+      "name": "When chat message received",
+      "webhookId": "394897dc-5415-495c-8c44-3ee9ba698494"
+    },
+    {
+      "parameters": {
+        "options": {
+          "systemMessage": "You answer questions about company invoices using the SQL tool.\n\nTables:\ninvoices(vendor_norm, invoice_number, invoice_date, currency, subtotal, tax_amount, total, status, flags, created_at)\ninvoice_items(vendor_norm, description, quantity, unit_price, line_total, created_at)\nvendors(vendor_norm, vendor_name, bank_account)\n\nRules:\n- Only write SELECT queries. Never modify data.\n- If the user gives no date range, ask for one.\n- Amounts are in the invoice currency. Always state the currency.\n- If the query returns no rows, say so. Never guess a number.\n- End each answer with the invoice numbers or the row count you used.\n- Quote invoice numbers only exactly as returned by the SQL query. Always include invoice_number in your SELECT when you list or count invoices.\n- If you did not select the invoice numbers, do not state any; say \"invoice numbers not retrieved\".\n- Keep answers under 6 lines."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        224,
+        0
+      ],
+      "id": "1a0e1672-e34b-4bb4-b251-6463968d7954",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.2,
+      "position": [
+        96,
+        208
+      ],
+      "id": "3b09254f-ecfa-4daf-8765-090715a718fb",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": null,
+          "name": "",
+          "__aiGatewayManaged": true
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "{{ $fromAI('sql_query', 'A read-only SELECT query to answer the question') }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.7,
+      "position": [
+        384,
+        208
+      ],
+      "id": "6edc98ce-cedc-44dd-8f69-2c59b4ac3f60",
+      "name": "SQL Reader",
+      "credentials": {
+        "postgres": {
+          "id": "ltyx33kmhb1IgwXl",
+          "name": "Postgres account 2"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SQL Reader": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true
+  },
+  "versionId": "c3a75e6a-2d69-4404-93f6-1dd6e9f4e663",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "92e822172ceb05862e524c3a58774ed375f4632f455f97bc0a69ec52a27d56d2"
+  },
+  "nodeGroups": [],
+  "id": "zSbVLw4cwrGer45z",
+  "tags": []
+}

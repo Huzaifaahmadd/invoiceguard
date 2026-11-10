@@ -1,0 +1,102 @@
+{
+  "name": "InvoiceGuard - Error Alerts",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        -176,
+        -32
+      ],
+      "id": "3db579a4-b5b6-439e-a7b1-81210b469863",
+      "name": "Error Trigger"
+    },
+    {
+      "parameters": {
+        "sendTo": "lifetrader233@gmail.com",
+        "subject": "=InvoiceGuard ERROR in {{ $json.workflow.name }}",
+        "emailType": "text",
+        "message": "=Workflow: {{ $('Error Trigger').first().json.workflow.name }}\nFailed node: {{ $('Error Trigger').first().json.execution.lastNodeExecuted }}\nError: {{ $('Error Trigger').first().json.execution.error.message }}\nSee details: {{ $('Error Trigger').first().json.execution.url }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        48,
+        -32
+      ],
+      "id": "5d73bfb7-ee9f-4bd6-a4d7-af387d3b02e5",
+      "name": "Error Email",
+      "webhookId": "e33c4f85-7c7b-4b05-a3c6-c93e0f26797d",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "h6Ul59NZJQfLQyPN",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO failed_queue (source, error, payload)\nVALUES ($1, $2, $3::jsonb);",
+        "options": {
+          "queryReplacement": "={{ [ $('Error Trigger').first().json.workflow.name + ' / ' + $('Error Trigger').first().json.execution.lastNodeExecuted, $('Error Trigger').first().json.execution.error.message, JSON.stringify($('Error Trigger').first().json) ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        272,
+        -32
+      ],
+      "id": "1d6b630d-762e-42e7-ab90-d0fc35972c0d",
+      "name": "Log Failure",
+      "credentials": {
+        "postgres": {
+          "id": "Ebp9aKdxQJzI4yeR",
+          "name": "Postgres account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Error Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error Email": {
+      "main": [
+        [
+          {
+            "node": "Log Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true
+  },
+  "versionId": "9a9c59fd-e816-46e8-a360-8659e266a187",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "92e822172ceb05862e524c3a58774ed375f4632f455f97bc0a69ec52a27d56d2"
+  },
+  "nodeGroups": [],
+  "id": "gBvjjmbgQaSsolyo",
+  "tags": []
+}
